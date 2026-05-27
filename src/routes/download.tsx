@@ -1,7 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Download, ImageOff } from "lucide-react";
 import { useEffect, useState } from "react";
-import { readLocalOriginalSession, type OriginalPhotoSession } from "@/lib/original-photo-session";
+import {
+  readLocalOriginalSession,
+  readSupabaseOriginalSession,
+  type OriginalPhotoSession,
+} from "@/lib/original-photo-session";
 
 export const Route = createFileRoute("/download")({
   head: () => ({ meta: [{ title: "Download Original Photos" }] }),
@@ -26,6 +30,15 @@ function DownloadOriginalsPage() {
     let cancelled = false;
 
     async function loadSession() {
+      const supabaseSession = await readSupabaseOriginalSession(id);
+      if (supabaseSession) {
+        if (!cancelled) {
+          setSession(supabaseSession);
+          setStatus("ready");
+        }
+        return;
+      }
+
       try {
         const response = await fetch(`/api/originals?id=${encodeURIComponent(id)}`);
         if (response.ok) {
@@ -55,7 +68,9 @@ function DownloadOriginalsPage() {
   }, [id]);
 
   const downloadAll = () => {
-    session?.photos.forEach((photo, index) => {
+    const photos = session?.photoUrls ?? session?.photos ?? [];
+
+    photos.forEach((photo, index) => {
       const a = document.createElement("a");
       a.href = photo;
       a.download = filename(index);
@@ -102,7 +117,7 @@ function DownloadOriginalsPage() {
 
       {session && (
         <div className="mt-10 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {session.photos.map((photo, index) => (
+          {(session.photoUrls ?? session.photos).map((photo, index) => (
             <div key={`${session.id}-${index}`} className="glass rounded-3xl p-3 shadow-soft">
               <div className="aspect-square rounded-2xl overflow-hidden bg-muted">
                 <img
